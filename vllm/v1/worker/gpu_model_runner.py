@@ -1750,6 +1750,22 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 is_mm_input=True,
             )
 
+            reduction_factor = self.info.get_vision_token_reduction_factor()
+            if reduction_factor > 1:
+                mm_tokens_post_reduction = [
+                    t // reduction_factor for t in mm_tokens
+                ]
+                num_tokens_post = np.array(mm_tokens_post_reduction,
+                                           dtype=np.int32)
+            else:
+                num_tokens_post = num_scheduled_tokens
+
+            self.set_active_loras(
+                self.input_batch,
+                num_tokens_post,
+                is_mm_input=False,
+            )
+
         for modality, num_items, mm_kwargs_group in group_mm_kwargs_by_modality(
             mm_kwargs,
             device=self.device,
@@ -1798,6 +1814,16 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             self.encoder_cache[mm_hash] = scatter_mm_placeholders(
                 output,
                 is_embed=pos_info.is_embed,
+            )
+
+        # reset lora mapping
+        if self.lora_config and self.supports_mm_lora:
+            tokens = [scheduler_output.num_scheduled_tokens[i] for i in self.input_batch.req_ids]
+            num_scheduled_tokens = np.array(tokens, dtype=np.int32)
+            self.set_active_loras(
+                self.input_batch,
+                num_scheduled_tokens,
+                is_mm_input=False,
             )
 
     def _gather_mm_embeddings(

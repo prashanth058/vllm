@@ -413,9 +413,9 @@ class LoRAModelManager:
             self.mm_punica_wrapper_mapping.update(
                 {self.mm_mapping.language_model[0]: self.punica_wrapper}
             )
-            # TODO Connector is not supported at the moment.
+            # Use language punica wrapper for connector modules.
             self.mm_punica_wrapper_mapping.update(
-                {name: None for name in self.mm_mapping.connector}
+                {name: self.punica_wrapper for name in self.mm_mapping.connector}
             )
 
         self.is_pooling_model = is_pooling_model(self.model)
@@ -547,15 +547,6 @@ class LoRAModelManager:
             if isinstance(module, PPMissingLayer):
                 continue
             if not self._match_target_modules(module_name):
-                continue
-            # A temporary approach for multimodal models to support LoRA
-            # TODO: Remove this restriction
-            if self._filter_unsupported_mm_module(module_name):
-                logger.warning(
-                    "Regarding multimodal models, vLLM currently only supports "
-                    "adding LoRA to language model, %s will be ignored.",
-                    module_name,
-                )
                 continue
             parts = module_name.split(".")[-1]
             packed_moduled_lst = self.packed_modules_mapping.get(parts, [])
